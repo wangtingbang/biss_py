@@ -4,12 +4,14 @@ Created on 2012-5-26
 @author: sigh.differ
 '''
 import re
+import mechanize
 import MySQLdb
 import MySqlConn
 import ProteinVO
 
 webroot = '.'
 base_dir = webroot + '/html/protein/'
+base_url_pro = 'http://www.ncbi.nlm.nih.gov/protein'
 
 def get_html_date( url ):
     
@@ -185,7 +187,43 @@ def get_html_data( br, url, vo ):
 	vo.setOri(ori_txt)
 	return vo
 
+def get_url_list( br, kw ): # function same as url_list_init
+#	f = open( './html/af.html', 'r' )
+	kw_url = 'http://www.ncbi.nlm.nih.gov/protein?term=' + kw
+	print 'open url: '+ kw_url + ' with browser tool, plz wait...'
+	web_cont = br.open(kw_url).get_data()
+#	cont = f.read()
+	cont = web_cont
+	print 'web contents gotten, url: ' + kw_url
+#	print cont
+
+	patt_r = '<p class="title"(.*?)</p>'	# rough re pattern
+	patt_d = 'href="/protein/(.*?)">'		# detail re pattern
+#	print patt_r
+	print 'starting get data from web content...'
+	print 'compiling ragular expression....'
+	prog_r = re.compile(patt_r)
+#	print prog_r
+	rough = prog_r.findall(cont)			# rough keywords
+	idx = 1 
+	url_list = []
+	for r in rough:
+		print idx
+#		print 'kw is: \t' + r
+		prog_d = re.compile(patt_d)
+		d_url_kws = prog_d.findall(r)
+		for d_kws in d_url_kws:
+			print d_kws
+			kw = d_kws.split('"')[0]
+			print kw
+			nice_url = base_url_pro + '/' + kw
+			url_list.append(nice_url)
+			print 'nice url: ' + nice_url
+		idx = idx + 1
+	return url_list
+
 if __name__ == '__main__':
+	'''
 	vo = ProteinVO.ProteinVO()
 	get_html_data('', '', vo)
 	#save_to_db( vo )
@@ -196,3 +234,10 @@ if __name__ == '__main__':
 
 	else:
 		print 'existed data...'
+	'''
+	br = mechanize.Browser()
+	url_lst = get_url_list( br, 'afd')
+	idx = 1
+	for url in url_lst:
+		print '%d: %s' %( idx, url)
+		idx = idx + 1
