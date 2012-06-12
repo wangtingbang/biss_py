@@ -4,18 +4,26 @@ Created on 2012-5-26
 @author: sigh.differ
 '''
 import re
+import os.path
 import mechanize
 import MySQLdb
 import MySqlConn
 import ProteinVO
 
 webroot = '.'
+kw_file_pro = './pro_kw.txt'
 base_dir = webroot + '/html/protein/'
 base_url_pro = 'http://www.ncbi.nlm.nih.gov/protein'
 
-def get_html_date( url ):
-    
-    return
+def read_kw(fdir):
+	if not os.path.isfile( fdir ):
+		print 'file read fail. can not read keyword from file...'
+		return None
+	f = open( fdir, 'r')
+	print 'keyword file open, getting keywords and generating keyword list...'
+	words = f.read().split('\n')
+	print 'keyword list processed...'
+	return words
 
 def save_to_db(vo):
 	'''
@@ -223,6 +231,15 @@ def get_url_list( br, kw ): # function same as url_list_init
 	return url_list
 
 if __name__ == '__main__':
+	kws = read_kw( kw_file_pro )
+	for kw in kws:
+		print kw
+	br = mechanize.Browser()
+	url_lst = get_url_list( br, 'afd')
+	idx = 1
+	for url in url_lst:
+		print '%d: %s' %( idx, url)
+		idx = idx + 1
 	'''
 	vo = ProteinVO.ProteinVO()
 	get_html_data('', '', vo)
@@ -235,9 +252,3 @@ if __name__ == '__main__':
 	else:
 		print 'existed data...'
 	'''
-	br = mechanize.Browser()
-	url_lst = get_url_list( br, 'afd')
-	idx = 1
-	for url in url_lst:
-		print '%d: %s' %( idx, url)
-		idx = idx + 1
