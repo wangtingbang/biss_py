@@ -4,6 +4,7 @@ Created on 2012-5-26
 @author: sigh.differ
 '''
 import re
+import os
 import os.path
 import time
 import mechanize
@@ -17,9 +18,11 @@ webroot = '.'
 kw_file_pro = './keywords/pro_kw.txt'	# keyword list file of protein
 ul_file_pro = './logs/pro_ul.txt'	# url list file of protein
 ul_err_file_pro = './logs/pro_ul_error.txt'	# url error log file of protein
+lh_err_file_pro = './logs/pro_lh_error.txt' # local html file error log file of protein
 local_html_dir = './local_html/web/protein'
 base_dir = webroot + '/html/protein/'
-base_url_pro = 'http://www.ncbi.nlm.nih.gov/protein'
+#base_url_pro = 'http://www.ncbi.nlm.nih.gov/protein'
+base_url_pro = 'http://localhost/biss/protein'
 
 def read_kw(fdir):
 	print 'Reading keywords from file, plase wait...'
@@ -81,19 +84,18 @@ def save_to_db(vo):
 	sql = 'insert into biss_protein values (\'' + vo.getId() + '\', \'' + vo.getLocus() + '\', \'' + vo.getDef() + '\', \'' + vo.getAcc() + '\', \'' + vo.getKw() + '\', \'' + vo.getVer() + '\', \'' + vo.getDbs() + '\', \'' + '' + '\', \'' + vo.getOrg() + '\', \'' + vo.getCmt() + '\', \'' + '' + '\', \'' + '' + '\', \'' + '' + '\', \'' + '' + '\', \'' + vo.getOri() + '\');'
 	f_open = open( 'f:/sql.sql', 'w')
 	f_open.write(sql)
-	print sql
+	print 'Now inserting data into database...'
 	res = MySqlConn.insert_one_by_sql(sql)
-	print 'result: '
-	print res
+	print '\tData inserted into database...'
 	return
 
 def query_from_db( pid):
-	print 'query from database, item id: ' + pid
-	sql = 'call query_protein_by_id_proc ( \'' + pid + '\');';
+	print 'Query from database, item id: ' + pid
+	sql = '\tCall query_protein_by_id_proc ( \'' + pid + '\');';
 	proc_name = 'query_protein_by_id_proc'
 	cds = MySqlConn.query_by_sql(sql)
 	if len(cds) == 0:
-		print '\tquery result is None'
+		print '\tQuery result is None'
 #	print cds
 	return	cds
 
@@ -128,6 +130,7 @@ def get_html_data( url, vo ):
 	f_data = f_html.read()
 	f_html.close()
 	'''
+	f_data = None
 	try:
 		br = mechanize.Browser()
 		f_url = br.open(url)
@@ -135,6 +138,12 @@ def get_html_data( url, vo ):
 		br.close()
 	except urllib2.URLError, e:
 		print '\tURL open error, url is: ' + url, e
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
+		f_err.close()
+		return
 
 	print '\tRagular expressions compiling...'
 	prog_id = re.compile( patt_id, re.DOTALL )
@@ -159,7 +168,7 @@ def get_html_data( url, vo ):
 		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
 		f_err.close()
 		return None
-	con_id = con_id[0].split(':')[1].lstrip()
+	id_txt = con_id[0].split(':')[1].lstrip()
 	print '\tItem id: ' + con_id[0]
 	con_locus = prog_locus.findall(f_data)
 	con_def = prog_def.findall(f_data)
@@ -170,18 +179,47 @@ def get_html_data( url, vo ):
 	con_org = prog_org.findall(f_data)
 	con_cmt =prog_cmt.findall(f_data)
 	con_ori = prog_ori.findall(f_data)
-	'''
-	print url
-	print con_id
-	print con_def
-	print con_acc
-	print con_kw
-	print con_ver
-	print con_dbs
-	print con_org
-	print con_cmt
-	print con_ori
-	'''
+
+	# processe locus data item
+	if len(con_locus) == 0:
+		lcs_txt = ''
+	else:
+		lcs_txt = con_locus[0].lstrip()
+		lcs_txt.replace( '\n', '\t')
+	# locus data item process completed
+
+	# process definition data item
+	if len(con_def) == 0:
+		def_txt = ''
+	else:
+		def_txt = con_def[0].lstrip()
+		def_txt.replace( '\n', '\t')
+	# definition data item process completed
+
+	# process accession data item
+	if len(con_acc) == 0:
+		acc_txt = ''
+	else:
+		acc_txt = con_acc[0].lstrip()
+		acc_txt.replace( '\n', '\t')
+	# accession data item process completed
+
+	# process keyword data item
+	if len(con_kw) == 0:
+		kw_txt = ''
+	else:
+		kw_txt = con_kw[0].lstrip()
+		kw_txt.replace( '\n', '\t')
+	# keyword data item process completed
+
+	# process version data item
+	if len(con_ver) == 0:
+		ver_txt = ''
+	else:
+		ver_txt = con_ver[0].lstrip()
+		ver_txt.replace( '\n', '\t')
+	# version data item process completed
+
 	# processe dbsource data item
 	if len(con_dbs) == 0:
 		dbs_txt = ''
@@ -193,6 +231,7 @@ def get_html_data( url, vo ):
 		#print times_rpl
 		prog_rpl = re.compile(patt_rpl, re.DOTALL)
 		dbs_rpl = prog_rpl.findall(dbs_txt)
+		dbs_txt.replace( '\n', '\t')
 		for rpl in dbs_rpl:
 			dbs_txt = dbs_txt.replace( '<a' + rpl + '">', '' )
 	# dbsource data item process completed
@@ -205,6 +244,7 @@ def get_html_data( url, vo ):
 		times_rpl = org_txt.count( '</a>' )
 		org_txt = org_txt.replace( '</a>', '', times_rpl)
 		org_rpl = prog_rpl.findall( org_txt )
+		org_txt.replace( '\n', '\t')
 		for rpl in org_rpl:
 			org_txt = org_txt.replace( '<a' + rpl + '">', '' )
 	# organism data item process completed
@@ -217,6 +257,7 @@ def get_html_data( url, vo ):
 		times_rpl = cmt_txt.count( '</a>' )
 		cmt_txt = cmt_txt.replace( '</a>', '', times_rpl)
 		cmt_rpl = prog_rpl.findall( cmt_txt )
+		cmt_txt.replace( '\n', '\t')
 		for rpl in cmt_rpl:
 			cmt_txt = cmt_txt.replace( '<a' + rpl + '">', '' )
 	# comments data item process completed
@@ -238,6 +279,7 @@ def get_html_data( url, vo ):
 		patt_rpl = '<a(.*?)a>'
 		prog_rpl = re.compile(patt_rpl, re.DOTALL)
 		ori_rpl = prog_rpl.findall(ori_txt)
+		ori_txt.replace( '\n', '\t')
 		for rep in ori_rpl:
 			rep_txt = '<a' + rep + 'a>'
 			ori_txt = ori_txt.replace( rep_txt, '')
@@ -245,16 +287,17 @@ def get_html_data( url, vo ):
 
 	# save data to vo
 	print '\tSaving data to vo...'
-	vo.setId(con_id[0].lstrip())
-	vo.setLocus(con_locus[0].lstrip())
-	vo.setDef(con_def[0].lstrip())
-	vo.setAcc(con_acc[0].lstrip())
-	vo.setKw(con_kw[0].lstrip())
+	vo.setId(id_txt)
+	vo.setLocus(lcs_txt)
+	vo.setDef(def_txt)
+	vo.setAcc(acc_txt)
+	vo.setKw(kw_txt)
+	vo.setVer(ver_txt)
 	vo.setDbs(dbs_txt)
 	vo.setOrg(org_txt)
 	vo.setCmt(cmt_txt)
 	vo.setOri(ori_txt)
-	print '\tvo size is: %d' % getsizeof(vo)
+#	print '\tvo size is: ', sys.getsizeof(vo)
 	print '\tSaving url to log file...'
 	f_ul = open(ul_file_pro, 'a')	# append a url to url list log file
 	f_ul.write( vo.getId() + ':' + url + '\n' )
@@ -282,15 +325,15 @@ def get_data_from_local( f_path, vo ):
 	patt_ftrc	#feature_cds
 	'''
 	print '\tOpen file ' + f_path + ' ...'
-	f_html = open(f_name, 'r')
+	f_html = None
+	try:
+		f_html = open(f_path, 'r')
+	except IOExcept, e:
+		print '\tLocal html file open error, ', e
+
 	f_data = f_html.read()
 	f_html.close()
-	'''
-	br = mechanize.Browser()
-	f_url = br.open(url)
-	f_data = f_url.get_data()
-	br.close()
-	'''
+
 	print '\tRagular expressions compiling...'
 	prog_id = re.compile( patt_id, re.DOTALL )
 	prog_locus = re.compile( patt_locus, re.DOTALL )
@@ -305,16 +348,16 @@ def get_data_from_local( f_path, vo ):
 	
 	print '\tFind all content by RE....'	
 	con_id = prog_id.findall(f_data)
-	con_id = con_id[0].split(':')[1].lstrip()
+
 	if len(con_id) == 0:
 		print '\tCannot get item id from html doc, maybe url is error...'
-		print '\tSaving error url to log file: ' + ul_err_file_pro
+		print '\tSaving error html file path to log file: ' + lh_err_file_pro
 		f_err = open(ul_err_file_pro, 'a')
 		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
 		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
 		f_err.close()
 		return None
-	print '\tItem id: ' + con_id[0]
+	id_txt = con_id[0].split(':')[1].lstrip()
 	con_locus = prog_locus.findall(f_data)
 	con_def = prog_def.findall(f_data)
 	con_acc = prog_acc.findall(f_data)
@@ -324,133 +367,242 @@ def get_data_from_local( f_path, vo ):
 	con_org = prog_org.findall(f_data)
 	con_cmt =prog_cmt.findall(f_data)
 	con_ori = prog_ori.findall(f_data)
-	print '\tAll data found....'
-	print url
-	print con_id
-	print con_def
-	print con_acc
-	print con_kw
-	print con_ver
-	print con_dbs
-	print con_org
-	print con_cmt
-	print con_ori
+
+	# processe locus data item
+	if len(con_locus) == 0:
+		lcs_txt = ''
+	else:
+		lcs_txt = con_locus[0].lstrip()
+		lcs_txt.replace( '\n', '\t')
+	# locus data item process completed
+
+	# process definition data item
+	if len(con_def) == 0:
+		def_txt = ''
+	else:
+		def_txt = con_def[0].lstrip()
+		def_txt.replace( '\n', '\t')
+	# definition data item process completed
+
+	# process accession data item
+	if len(con_acc) == 0:
+		acc_txt = ''
+	else:
+		acc_txt = con_acc[0].lstrip()
+		acc_txt.replace( '\n', '\t')
+	# accession data item process completed
+
+	# process keyword data item
+	if len(con_kw) == 0:
+		kw_txt = ''
+	else:
+		kw_txt = con_kw[0].lstrip()
+		kw_txt.replace( '\n', '\t')
+	# keyword data item process completed
+
+	# process version data item
+	if len(con_ver) == 0:
+		ver_txt = ''
+	else:
+		ver_txt = con_ver[0].lstrip()
+		ver_txt.replace( '\n', '\t')
+	# version data item process completed
 
 	# processe dbsource data item
-	dbs_txt = con_dbs[0]
-	patt_rpl = '<a(.*?)">'
-	times_rpl = dbs_txt.count( '</a>' )
-	dbs_txt = dbs_txt.replace( '</a>', '', times_rpl)
-	#print times_rpl
-	prog_rpl = re.compile(patt_rpl, re.DOTALL)
-	dbs_rpl = prog_rpl.findall(dbs_txt)
-	for rpl in dbs_rpl:
-		dbs_txt = dbs_txt.replace( '<a' + rpl + '">', '' )
+	if len(con_dbs) == 0:
+		dbs_txt = ''
+	else:
+		dbs_txt = con_dbs[0]
+		patt_rpl = '<a(.*?)">'
+		times_rpl = dbs_txt.count( '</a>' )
+		dbs_txt = dbs_txt.replace( '</a>', '', times_rpl)
+		#print times_rpl
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		dbs_rpl = prog_rpl.findall(dbs_txt)
+		dbs_txt.replace( '\n', '\t')
+		for rpl in dbs_rpl:
+			dbs_txt = dbs_txt.replace( '<a' + rpl + '">', '' )
 	# dbsource data item process completed
 
 	# process organism data item
-	org_txt = con_org[0]
-	times_rpl = org_txt.count( '</a>' )
-	org_txt = org_txt.replace( '</a>', '', times_rpl)
-	org_rpl = prog_rpl.findall( org_txt )
-	for rpl in org_rpl:
-		org_txt = org_txt.replace( '<a' + rpl + '">', '' )
+	if len(con_org) == 0:
+		org_txt = ''
+	else:
+		org_txt = con_org[0]
+		times_rpl = org_txt.count( '</a>' )
+		org_txt = org_txt.replace( '</a>', '', times_rpl)
+		org_rpl = prog_rpl.findall( org_txt )
+		org_txt.replace( '\n', '\t')
+		for rpl in org_rpl:
+			org_txt = org_txt.replace( '<a' + rpl + '">', '' )
 	# organism data item process completed
 
 	# process comments data item
-	cmt_txt = con_cmt[0]
-	times_rpl = cmt_txt.count( '</a>' )
-	cmt_txt = cmt_txt.replace( '</a>', '', times_rpl)
-	cmt_rpl = prog_rpl.findall( cmt_txt )
-	for rpl in cmt_rpl:
-		cmt_txt = cmt_txt.replace( '<a' + rpl + '">', '' )
+	if len(con_cmt) == 0:
+		cmt_txt = ''
+	else:
+		cmt_txt = con_cmt[0]
+		times_rpl = cmt_txt.count( '</a>' )
+		cmt_txt = cmt_txt.replace( '</a>', '', times_rpl)
+		cmt_rpl = prog_rpl.findall( cmt_txt )
+		cmt_txt.replace( '\n', '\t')
+		for rpl in cmt_rpl:
+			cmt_txt = cmt_txt.replace( '<a' + rpl + '">', '' )
 	# comments data item process completed
 
 	# process origin data item
-	ori_txt = con_ori[0]
-	patt_rpl = '<span(.*?)">'
-	prog_rpl = re.compile(patt_rpl, re.DOTALL)
-	ori_rpl = prog_rpl.findall(ori_txt)
-	times = ori_txt.count('</span>')
-	ori_txt = ori_txt.replace( '</span>', '', times)
-	for rep in ori_rpl:
-		rep_txt = '<span' + rep + '">'
-		ori_txt = ori_txt.replace( rep_txt, '')
-
-	patt_rpl = '<a(.*?)a>'
-	prog_rpl = re.compile(patt_rpl, re.DOTALL)
-	ori_rpl = prog_rpl.findall(ori_txt)
-	for rep in ori_rpl:
-		rep_txt = '<a' + rep + 'a>'
-		ori_txt = ori_txt.replace( rep_txt, '')
+	if len(con_ori) == 0:
+		ori_txt = ''
+	else:
+		ori_txt = con_ori[0]
+		patt_rpl = '<span(.*?)">'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ori_rpl = prog_rpl.findall(ori_txt)
+		times = ori_txt.count('</span>')
+		ori_txt = ori_txt.replace( '</span>', '', times)
+		for rep in ori_rpl:
+			rep_txt = '<span' + rep + '">'
+			ori_txt = ori_txt.replace( rep_txt, '')
+	
+		patt_rpl = '<a(.*?)a>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ori_rpl = prog_rpl.findall(ori_txt)
+		ori_txt.replace( '\n', '\t')
+		for rep in ori_rpl:
+			rep_txt = '<a' + rep + 'a>'
+			ori_txt = ori_txt.replace( rep_txt, '')
 	# origin data item processe completed
 
 	# save data to vo
-	print 'saving data to vo...'
-	vo.setId(con_id[0].lstrip())
-	vo.setLocus(con_locus[0].lstrip())
-	vo.setDef(con_def[0].lstrip())
-	vo.setAcc(con_acc[0].lstrip())
-	vo.setKw(con_kw[0].lstrip())
+	print '\tSaving data to vo...'
+	vo.setId(id_txt)
+	vo.setLocus(lcs_txt)
+	vo.setDef(def_txt)
+	vo.setAcc(acc_txt)
+	vo.setKw(kw_txt)
+	vo.setVer(ver_txt)
 	vo.setDbs(dbs_txt)
 	vo.setOrg(org_txt)
 	vo.setCmt(cmt_txt)
 	vo.setOri(ori_txt)
+#	print '\tvo size is: ', sys.getsizeof(vo)
 
 	print '\tHtml data gotten, next processing...'
 	return vo
 
 def get_url_list( kw ): # function same as url_list_init
-	print 'Get url list by query keywords from NCBI website...'
+	print 'Get url list by query keywords( ' + kw + ' )from NCBI website...'
 	br = mechanize.Browser()
+	idx_pg = 1
+#	kw_url = 'http://localhost/biss/protein_af_' + idx + '.htm'
 #	f = open( './html/af.html', 'r' )
-	kw_url = 'http://www.ncbi.nlm.nih.gov/protein?term=' + kw
-	print '\tOpenning url: '+ kw_url + ' with browser tool, plz wait...'
+#	kw_url = 'http://www.ncbi.nlm.nih.gov/protein?term=' + kw
 	web = None
-	try:
-		web = br.open(kw_url)
-	except urllib2.URLError, e:
-		print '\tURL open error, ', e
-	except urllib2.HTTPError, e:
-		print '\tHTTP error, ', e
-
-	if not web:
-		print '\tCannot open url: ' + kw_url
-		return
-	web_cont = web.get_data()
-	br.close()
-#	cont = f.read()
-	cont = web_cont
-	print '\tWeb contents gotten, url: ' + kw_url
-#	print cont
-
-	patt_r = '<p class="title"(.*?)</p>'	# rough re pattern
-	patt_d = 'href="/protein/(.*?)">'		# detail re pattern
-#	print patt_r
-	print '\tStarting get url list from web content...'
-	print '\tCompiling ragular expression....'
-	prog_r = re.compile(patt_r)
-	rough = prog_r.findall(cont)			# rough keywords
-	if len(rough) == 0:
-		print rough
-		print '\tNone of result by keyword:' + kw
-		return None
-	idx = 1 
+	f = None
+	is_np = True
 	url_list = []
-	for r in rough:
-#		print 'kw is: \t' + r
-		prog_d = re.compile(patt_d)
-		d_url_kws = prog_d.findall(r)
-		for d_kws in d_url_kws:
-			kw = d_kws.split('"')[0]
-			nice_url = base_url_pro + '/' + kw
-			url_list.append(nice_url)
-			print '\t%d\tnice url: %s' % ( idx, nice_url )
-		idx = idx + 1
+	while is_np == True:
+		kw_url = 'http://localhost/biss/protein_af_' + str(idx_pg) + '.htm'
+		print '\tOpenning url: '+ kw_url + ' with browser tool, plz wait...'
+		try:
+			web = br.open(kw_url)
+		#	f = open(kw_url, 'r')
+		#	web = f.get_data()
+		except urllib2.URLError, e:
+			print '\tURL open error, ', e
+		except urllib2.HTTPError, e:
+			print '\tHTTP error, ', e
+
+		if not web:
+			print '\tCannot open url: ' + kw_url
+			return
+		web_cont = web.get_data()
+
+	#	cont = f.read()
+		cont = web_cont
+		print '\tWeb contents gotten, url: ' + kw_url
+	#	print cont
+
+		patt_r = '<p class="title"(.*?)</p>'	# rough re pattern
+		patt_d = '/protein/(.*?)">'		# detail re pattern
+	#	print patt_r
+		print '\tStarting get url list from web content...'
+		print '\tCompiling ragular expression....'
+		prog_r = re.compile(patt_r)
+		rough = prog_r.findall(cont)			# rough keywords
+		if len(rough) == 0:
+			print rough
+			print '\tNone of result by keyword:' + kw
+			return None
+		idx = 1 
+		for r in rough:
+	#		print 'kw is: \t' + r
+			prog_d = re.compile(patt_d)
+			d_url_kws = prog_d.findall(r)
+			for d_kws in d_url_kws:
+	#			kw = d_kws.split('"')[0]
+	#			nice_url = base_url_pro + '/' + kw
+				nice_url = base_url_pro + '/' + d_kws.split('"')[0] + '.htm'
+				url_list.append(nice_url)
+				print '\t%d\tnice url: %s' % ( idx, nice_url )
+			idx = idx + 1
+		
+		patt_np = 'Next &gt;</a>'
+		prog_np = re.compile(patt_np, re.DOTALL)
+		np = prog_np.findall(web_cont)
+		if len(np) != 0:
+			print '\tNexp page...\t',np
+			is_np = True
+			np = None
+			web = None
+			web_cont = None
+			idx_pg = idx_pg + 1
+			'''
+		    br.select_form(name="login")  # Find the login form
+		    br[np] = idx_pg     # Set the form values
+		    resp = br.submit()            # Submit the form
+
+		    # Automatic redirect sometimes fails, follow manually when needed
+		    if 'Redirecting' in br.title():
+				resp = br.follow_link(text_regex='click here')
+
+		    # Loop through the searches, keeping fixed query parameters
+		    for actor in in VARIABLE_QUERY:
+				# I like to watch what's happening in the console
+		        print >> sys.stderr, '***', actor
+				# Lets do the actual query now
+		        br.open(kw_url)
+		        # The query actually gives us links to the content pages we like,
+		        # but there are some other links on the page that we ignore
+		        nice_links = [l for l in br.links()
+                        if 'good_path' in l.url
+                        and 'credential' in l.url]
+				if not nice_links:        # Maybe the relevant results are empty
+		            break
+		        for link in nice_links:
+					try:
+						response = br.follow_link(link)
+		                # More console reporting on title of followed link page
+		                print >> sys.stderr, br.title()
+		                # Increment output filenames, open and write the file
+				        result_no += 1
+		                out = open(result_%04d' % result_no, 'w')
+				        print >> out, response.read()
+		                out.close()
+					# Nothing ever goes perfectly, ignore if we do not get page
+				    except mechanize._response.httperror_seek_wrapper:
+					print >> sys.stderr, "Response error (probably 404)"
+		            # Let s not hammer the site too much between fetches
+					time.sleep(1)
+				'''
+		else:
+			is_np = False
+
+	br.close()
+	#	f.close()
 	return url_list
 
 def protein_grab():
-	'''
 	# read keywords for quering from file
 	kws = read_kw( kw_file_pro )
 	if kws is None:
@@ -473,16 +625,17 @@ def protein_grab():
 			continue
 		for url in urls:
 			url_list.append(url)
-	'''
-	url_list = ['http://www.ncbi.nlm.nih.gov/protein/AAN15854.1', 'http://www.ncbi.nlm.nih.gov/protein/AAN15855.1']
+#	url_list = ['http://www.ncbi.nlm.nih.gov/protein/AAN15854.1', 'http://www.ncbi.nlm.nih.gov/protein/AAN15855.1']
 	if len(url_list) == 0:
-		print 'None of URL generated by keywords, cannot grab web from NCBI...'
-		print 'Programming will exit....'
+		print '\t\tNone of URL generated by keywords, cannot grab web from NCBI...'
+		print '\t\tProgramming will exit....'
 		exit()
 	idx = 1
+	'''
 	for url in url_list:
-		print '\tURL from url list:\t%d\t%s'%(idx, url)
+		print '\t\tURL from url list:\t%d\t%s'%(idx, url)
 		idx = idx + 1
+	'''
 	# get data from html doc
 	#		input: url, vo( which type is ProteinVO )
 	#		output: vo, which is data stored
@@ -490,20 +643,28 @@ def protein_grab():
 	vo = ProteinVO.ProteinVO()
 	for url in url_list:
 		get_html_data(url, vo)
-#	print 'in main: vo: id: ' + vo.getId()
-#	print query_from_db('234')
-	'''
-	'''
-	vo = ProteinVO.ProteinVO()
-	get_html_data('', '', vo)
-	#save_to_db( vo )
-	cds = query_from_db( vo.getId())
-	if cds is None:
-		save_to_db( vo )
-		print 'none'
-
-	else:
-		print 'existed data...'
+#		print query_from_db(vo.getId())
+		
+		cds = query_from_db( vo.getId())
+		if len(cds) == 0:
+			save_to_db( vo )
+			print '\t\tNone of this data item existed in database, now saving to database...'
+		else:
+			print '\t\tExisted data in database, no data saved into database...'
 	
+def protein_get_from_local():
+	files = os.listdir(local_html_dir)
+	vo = ProteinVO.ProteinVO()
+	for f_path in files:
+		get_data_from_local( local_html_dir + '/' + f_path, vo )
+		cds = query_from_db( vo.getId())
+		if len(cds) == 0:
+			print '\tNone of this data item existed in database, now saving to database...'
+			save_to_db( vo )
+
+		else:
+			print '\t\tExisted data in database, no data saved into database...'
+
 if __name__ == '__main__':
-	protein_grab()
+#	protein_grab()
+	protein_get_from_local()
