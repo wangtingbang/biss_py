@@ -83,7 +83,7 @@ def save_to_db(vo):
 		+ vo.getOri() + '\');'
 	'''
 	sql = 'insert into biss_protein values (\'' + vo.getId() + '\', \'' + vo.getLocus() + '\', \'' + vo.getDef() + '\', \'' + vo.getAcc() + '\', \'' + vo.getKw() + '\', \'' + vo.getVer() + '\', \'' + vo.getDbs() + '\', \'' + '' + '\', \'' + vo.getOrg() + '\', \'' + vo.getCmt() + '\', \'' + vo.getFtr() + '\', \'' + vo.getFtrs() + '\', \'' + vo.getFtrp() + '\', \'' + vo.getFtrc() + '\', \'' + vo.getOri() + '\');'
-	f_open = open( './logs/sql.sql', 'w')
+	f_open = open( './logs/protein_sql.sql', 'a')
 	f_open.write(sql)
 	print 'Now inserting data into database...'
 	res = MySqlConn.insert_one_by_sql(sql)
@@ -424,17 +424,16 @@ def get_data_from_local( f_path, vo ):
 	patt_org = 'ORGANISM(.*?)REFERENCE'		# organism
 	patt_cmt = 'COMMENT(.*?)FEATURES'		# comment
 	patt_ori = 'ORIGIN(.*?)//'			# origin
-	'''
-	patt_ftr	#features
-	patt_ftrs	#feature_source
-	patt_ftrp	#feature_protein
-	patt_ftrc	#feature_cds
-	'''
+	patt_ftr = ''
+	patt_ftrs = '<span id="feature_(.*?)_source(.*?)</span>'	#feature_source
+	patt_ftrp = '<span id="feature_(.*?)_Protein_(.*?)</span>'	#feature_protein
+	patt_ftrc = 'CDS</a>(.*?)</span>'	#feature_cds
+
 	print '\tOpen file ' + f_path + ' ...'
 	f_html = None
 	try:
 		f_html = open(f_path, 'r')
-	except IOExcept, e:
+	except IOError, e:
 		print '\tLocal html file open error, ', e
 
 	f_data = f_html.read()
@@ -451,6 +450,9 @@ def get_data_from_local( f_path, vo ):
 	prog_org = re.compile( patt_org, re.DOTALL )
 	prog_cmt = re.compile( patt_cmt, re.DOTALL )
 	prog_ori = re.compile( patt_ori, re.DOTALL )
+	prog_ftrs = re.compile( patt_ftrs, re.DOTALL )
+	prog_ftrp = re.compile( patt_ftrp, re.DOTALL )
+	prog_ftrc = re.compile( patt_ftrc, re.DOTALL )
 	
 	print '\tFind all content by RE....'	
 	con_id = prog_id.findall(f_data)
@@ -460,7 +462,7 @@ def get_data_from_local( f_path, vo ):
 		print '\tSaving error html file path to log file: ' + lh_err_file_pro
 		f_err = open(ul_err_file_pro, 'a')
 		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
-		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
+		f_err.write( '====================================\n' + t + '\n\t' + f_path + '\n')
 		f_err.close()
 		return None
 	id_txt = con_id[0].split(':')[1].lstrip()
@@ -579,6 +581,106 @@ def get_data_from_local( f_path, vo ):
 			ori_txt = ori_txt.replace( rep_txt, '')
 	# origin data item processe completed
 
+	ftr_txt = 'Location/Qualifiers'
+
+	# process feature source data item
+	con_ftrs = prog_ftrs.findall(f_data)
+	if len(con_ftrs) == 0:
+		print '\tCannot get item id from html doc, maybe url is error...'
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + f_path + '\n')
+		f_err.close()
+		return None
+	else:
+		ftrs_txt = con_ftrs[0][1]
+		times_rpl = ftrs_txt.count( '</a>' )
+		ftrs_txt = ftrs_txt.replace( '</a>', '', times_rpl)
+		patt_rpl = '<script(.*?)/script>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrs_rpl = prog_rpl.findall(ftrs_txt)
+		for rpl in ftrs_rpl:
+			ftrs_txt = ftrs_txt.replace( '<script' + rpl + '/script>', '' )
+			ftrs_txt = ftrs_txt.replace('                     ', ' ')
+			ftrs_txt = ftrs_txt.replace('\n', ' ')
+		patt_rpl = '<a(.*?)>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrs_rpl = prog_rpl.findall(ftrs_txt)
+		for rpl in ftrs_rpl:
+			ftrs_txt = ftrs_txt.replace( '<a' + rpl + '>', '' )
+		ftrs_txt = ftrs_txt.split('>')[1]
+	# feature source data item process completed
+
+	# process feature protein data item
+	prog_ftrp = re.compile( patt_ftrp, re.DOTALL )
+	con_ftrp = prog_ftrp.findall(f_data)
+	if len(con_ftrp) == 0:
+		print '\tCannot get item id from html doc, maybe url is error...'
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + f_path + '\n')
+		f_err.close()
+		return None
+	else:
+		ftrp_txt = con_ftrp[0][1]
+		times_rpl = ftrp_txt.count( '</a>' )
+		ftrp_txt = ftrp_txt.replace( '</a>', '', times_rpl)
+		patt_rpl = '<script(.*?)/script>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrp_rpl = prog_rpl.findall(ftrp_txt)
+		idx = 1
+		for rpl in ftrp_rpl:
+			ftrp_txt = ftrp_txt.replace( '<script' + rpl + '/script>', '' )
+			ftrp_txt = ftrp_txt.replace('                     ', ' ')
+			ftrp_txt = ftrp_txt.replace('"\n', ' ')
+			idx = idx +1
+		patt_rpl = '<a(.*?)>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrs_rpl = prog_rpl.findall(ftrp_txt)
+		for rpl in ftrs_rpl:
+			ftrp_txt = ftrp_txt.replace( '<a' + rpl + '>', '' )
+		ftrp_txt = ftrp_txt.split('>')[1].lstrip()
+	# feature protein data item process completed
+
+	# process feature CDS data item
+	prog_ftrc = re.compile( patt_ftrc, re.DOTALL )
+	con_ftrc = prog_ftrc.findall(f_data)
+#	print '\n@@\n', con_ftrc, '\n@@\n'
+	if len(con_ftrc) == 0:
+		print '\tCannot get feature cds from html doc, maybe url is error...'
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + f_path + '\n')
+		f_err.close()
+		return None
+	else:
+		ftrc_txt = con_ftrc[0]
+		print 'ftrc_txt = con_ftrc[0][1]\n\t', ftrc_txt
+		times_rpl = ftrc_txt.count( '</a>' )
+		ftrc_txt = ftrc_txt.replace( '</a>', '', times_rpl)
+		times_rpl = ftrc_txt.count( '                     ' )
+		ftrc_txt = ftrc_txt.replace('                     ', ' ', times_rpl)
+		times_rpl = ftrc_txt.count( '\n' )
+		ftrc_txt = ftrc_txt.replace('\n', ' ', times_rpl)
+		patt_rpl = '<a href(.*?)>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrc_rpl = prog_rpl.findall(ftrc_txt)
+#		print 'After place:\t@@@@@@@@@@@@@@@\n', ftrc_txt
+		idx = 1
+		for rpl in ftrc_rpl:
+			ftrc_txt = ftrc_txt.replace( '<a href' + rpl + '>', '' )
+			idx = idx +1
+#			print '\n\nIn placing\t%%%%%%%%%%%%%%%%%%%%\nRPL:',rpl, '\nREED\n', ftrc_txt
+		patt_rpl = '<a(.*?)>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrc_rpl = prog_rpl.findall(ftrp_txt)
+#		ftrc_txt = ftrc_txt.split('>')[1].lstrip()
+		print '\n\nPlaced:\t$$$$$$$$$$$$$$$$\n',ftrc_txt, '\n****************'
+	# CDS protein data item process completed
+
 	# save data to vo
 	print '\tSaving data to vo...'
 	vo.setId(id_txt)
@@ -591,6 +693,11 @@ def get_data_from_local( f_path, vo ):
 	vo.setOrg(org_txt)
 	vo.setCmt(cmt_txt)
 	vo.setOri(ori_txt)
+	vo.setFtr(ftr_txt)
+	vo.setFtrs(ftrs_txt)
+	vo.setFtrp(ftrp_txt)
+	vo.setFtrc(ftrc_txt)
+
 #	print '\tvo size is: ', sys.getsizeof(vo)
 
 	print '\tHtml data gotten, next processing...'
@@ -890,6 +997,8 @@ def protein_get_from_local():
 	vo = ProteinVO.ProteinVO()
 	vo_r = ProteinRefVO.ProteinRefVO()
 	for f_path in files:
+		if not os.path.isfile(local_html_dir + '/' + f_path):
+			continue
 		get_data_from_local( local_html_dir + '/' + f_path, vo )
 		cds = query_from_db( vo.getId())
 		if len(cds) == 0:
@@ -900,5 +1009,5 @@ def protein_get_from_local():
 			print '\t\tExisted data in database, no data saved into database...'
 
 if __name__ == '__main__':
-	protein_grab()
-#	protein_get_from_local()
+	#protein_grab()
+	protein_get_from_local()
