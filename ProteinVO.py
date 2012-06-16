@@ -23,7 +23,10 @@ class ProteinVO(object):
 	org = ''		# organism
 	cmt = ''		# comment
 	ori = ''		# origin
-
+	ftr = ''		# feature
+	ftr_s = ''		# feature source
+	ftr_p = ''		# feature protein
+	ftr_c = ''		# feature cds
 	##########  setter  ###########
 	def setId(object, para ):
 		ProteinVO.item_id = para
@@ -54,6 +57,19 @@ class ProteinVO(object):
 
 	def setOri(object, para ):
 		ProteinVO.ori = para
+
+	def setFtr(object, para ):
+		ProteinVO.ftr = para
+
+	def setFtrs(object, para ):
+		ProteinVO.ftr_s = para
+
+	def setFtrp(object, para ):
+		ProteinVO.ftr_p = para
+
+	def setFtrc(object, para ):
+		ProteinVO.ftr_c = para
+
 	###########  gettter  ###########
 	def getId(object):
 		return ProteinVO.item_id
@@ -85,6 +101,17 @@ class ProteinVO(object):
 	def getOri(object):
 		return ProteinVO.ori
 
+	def getFtr(object):
+		return ProteinVO.ftr
+
+	def getFtrs(object):
+		return ProteinVO.ftr_s
+
+	def getFtrp(object):
+		return ProteinVO.ftr_p
+
+	def getFtrc(object):
+		return ProteinVO.ftr_c
 
 if __name__ == '__main__':
 	mc = MyClass()

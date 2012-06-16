@@ -13,6 +13,7 @@ import sys
 import MySQLdb
 import MySqlConn
 import ProteinVO
+import ProteinRefVO
 
 webroot = '.'
 kw_file_pro = './keywords/pro_kw.txt'	# keyword list file of protein
@@ -81,8 +82,8 @@ def save_to_db(vo):
 		+ '' + '\', \''	
 		+ vo.getOri() + '\');'
 	'''
-	sql = 'insert into biss_protein values (\'' + vo.getId() + '\', \'' + vo.getLocus() + '\', \'' + vo.getDef() + '\', \'' + vo.getAcc() + '\', \'' + vo.getKw() + '\', \'' + vo.getVer() + '\', \'' + vo.getDbs() + '\', \'' + '' + '\', \'' + vo.getOrg() + '\', \'' + vo.getCmt() + '\', \'' + '' + '\', \'' + '' + '\', \'' + '' + '\', \'' + '' + '\', \'' + vo.getOri() + '\');'
-	f_open = open( 'f:/sql.sql', 'w')
+	sql = 'insert into biss_protein values (\'' + vo.getId() + '\', \'' + vo.getLocus() + '\', \'' + vo.getDef() + '\', \'' + vo.getAcc() + '\', \'' + vo.getKw() + '\', \'' + vo.getVer() + '\', \'' + vo.getDbs() + '\', \'' + '' + '\', \'' + vo.getOrg() + '\', \'' + vo.getCmt() + '\', \'' + vo.getFtr() + '\', \'' + vo.getFtrs() + '\', \'' + vo.getFtrp() + '\', \'' + vo.getFtrc() + '\', \'' + vo.getOri() + '\');'
+	f_open = open( './logs/sql.sql', 'w')
 	f_open.write(sql)
 	print 'Now inserting data into database...'
 	res = MySqlConn.insert_one_by_sql(sql)
@@ -117,12 +118,10 @@ def get_html_data( url, vo ):
 	patt_org = 'ORGANISM(.*?)REFERENCE'		# organism
 	patt_cmt = 'COMMENT(.*?)FEATURES'		# comment
 	patt_ori = 'ORIGIN(.*?)//'			# origin
-	'''
-	patt_ftr	#features
-	patt_ftrs	#feature_source
-	patt_ftrp	#feature_protein
-	patt_ftrc	#feature_cds
-	'''
+	patt_ftr = ''
+	patt_ftrs = '<span id="feature_(.*?)_source(.*?)</span>'	#feature_source
+	patt_ftrp = '<span id="feature_(.*?)_Protein_(.*?)</span>'	#feature_protein
+	patt_ftrc = 'CDS</a>(.*?)</span>'	#feature_cds
 	'''
 	f_name = './Q45071.2.htm'
 	print 'open file ' + f_name + '....'
@@ -156,6 +155,9 @@ def get_html_data( url, vo ):
 	prog_org = re.compile( patt_org, re.DOTALL )
 	prog_cmt = re.compile( patt_cmt, re.DOTALL )
 	prog_ori = re.compile( patt_ori, re.DOTALL )
+	prog_ftrs = re.compile( patt_ftrs, re.DOTALL )
+	prog_ftrp = re.compile( patt_ftrp, re.DOTALL )
+	prog_ftrc = re.compile( patt_ftrc, re.DOTALL )
 	
 	print '\tFind all content by RE....'	
 	con_id = prog_id.findall(f_data)
@@ -285,6 +287,106 @@ def get_html_data( url, vo ):
 			ori_txt = ori_txt.replace( rep_txt, '')
 	# origin data item processe completed
 
+	ftr_txt = 'Location/Qualifiers'
+
+	# process feature source data item
+	con_ftrs = prog_ftrs.findall(f_data)
+	if len(con_ftrs) == 0:
+		print '\tCannot get item id from html doc, maybe url is error...'
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
+		f_err.close()
+		return None
+	else:
+		ftrs_txt = con_ftrs[0][1]
+		times_rpl = ftrs_txt.count( '</a>' )
+		ftrs_txt = ftrs_txt.replace( '</a>', '', times_rpl)
+		patt_rpl = '<script(.*?)/script>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrs_rpl = prog_rpl.findall(ftrs_txt)
+		for rpl in ftrs_rpl:
+			ftrs_txt = ftrs_txt.replace( '<script' + rpl + '/script>', '' )
+			ftrs_txt = ftrs_txt.replace('                     ', ' ')
+			ftrs_txt = ftrs_txt.replace('\n', ' ')
+		patt_rpl = '<a(.*?)>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrs_rpl = prog_rpl.findall(ftrs_txt)
+		for rpl in ftrs_rpl:
+			ftrs_txt = ftrs_txt.replace( '<a' + rpl + '>', '' )
+		ftrs_txt = ftrs_txt.split('>')[1]
+	# feature source data item process completed
+
+	# process feature protein data item
+	prog_ftrp = re.compile( patt_ftrp, re.DOTALL )
+	con_ftrp = prog_ftrp.findall(f_data)
+	if len(con_ftrp) == 0:
+		print '\tCannot get item id from html doc, maybe url is error...'
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
+		f_err.close()
+		return None
+	else:
+		ftrp_txt = con_ftrp[0][1]
+		times_rpl = ftrp_txt.count( '</a>' )
+		ftrp_txt = ftrp_txt.replace( '</a>', '', times_rpl)
+		patt_rpl = '<script(.*?)/script>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrp_rpl = prog_rpl.findall(ftrp_txt)
+		idx = 1
+		for rpl in ftrp_rpl:
+			ftrp_txt = ftrp_txt.replace( '<script' + rpl + '/script>', '' )
+			ftrp_txt = ftrp_txt.replace('                     ', ' ')
+			ftrp_txt = ftrp_txt.replace('"\n', ' ')
+			idx = idx +1
+		patt_rpl = '<a(.*?)>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrs_rpl = prog_rpl.findall(ftrp_txt)
+		for rpl in ftrs_rpl:
+			ftrp_txt = ftrp_txt.replace( '<a' + rpl + '>', '' )
+		ftrp_txt = ftrp_txt.split('>')[1].lstrip()
+	# feature protein data item process completed
+
+	# process feature CDS data item
+	prog_ftrc = re.compile( patt_ftrc, re.DOTALL )
+	con_ftrc = prog_ftrc.findall(f_data)
+#	print '\n@@\n', con_ftrc, '\n@@\n'
+	if len(con_ftrc) == 0:
+		print '\tCannot get item id from html doc, maybe url is error...'
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
+		f_err.close()
+		return None
+	else:
+		ftrc_txt = con_ftrc[0]
+		print 'ftrc_txt = con_ftrc[0][1]\n\t', ftrc_txt
+		times_rpl = ftrc_txt.count( '</a>' )
+		ftrc_txt = ftrc_txt.replace( '</a>', '', times_rpl)
+		times_rpl = ftrc_txt.count( '                     ' )
+		ftrc_txt = ftrc_txt.replace('                     ', ' ', times_rpl)
+		times_rpl = ftrc_txt.count( '\n' )
+		ftrc_txt = ftrc_txt.replace('\n', ' ', times_rpl)
+		patt_rpl = '<a href(.*?)>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrc_rpl = prog_rpl.findall(ftrc_txt)
+#		print 'After place:\t@@@@@@@@@@@@@@@\n', ftrc_txt
+		idx = 1
+		for rpl in ftrc_rpl:
+			ftrc_txt = ftrc_txt.replace( '<a href' + rpl + '>', '' )
+			idx = idx +1
+#			print '\n\nIn placing\t%%%%%%%%%%%%%%%%%%%%\nRPL:',rpl, '\nREED\n', ftrc_txt
+		patt_rpl = '<a(.*?)>'
+		prog_rpl = re.compile(patt_rpl, re.DOTALL)
+		ftrc_rpl = prog_rpl.findall(ftrp_txt)
+#		ftrc_txt = ftrc_txt.split('>')[1].lstrip()
+		print '\n\nPlaced:\t$$$$$$$$$$$$$$$$\n',ftrc_txt, '\n****************'
+	# CDS protein data item process completed
+
 	# save data to vo
 	print '\tSaving data to vo...'
 	vo.setId(id_txt)
@@ -297,6 +399,10 @@ def get_html_data( url, vo ):
 	vo.setOrg(org_txt)
 	vo.setCmt(cmt_txt)
 	vo.setOri(ori_txt)
+	vo.setFtr(ftr_txt)
+	vo.setFtrs(ftrs_txt)
+	vo.setFtrp(ftrp_txt)
+	vo.setFtrc(ftrc_txt)
 #	print '\tvo size is: ', sys.getsizeof(vo)
 	print '\tSaving url to log file...'
 	f_ul = open(ul_file_pro, 'a')	# append a url to url list log file
@@ -490,6 +596,132 @@ def get_data_from_local( f_path, vo ):
 	print '\tHtml data gotten, next processing...'
 	return vo
 
+def get_html_ref_data( pid, url, vo ):
+	patt_rno = 'REFERENCE(.*?)[A-Z][A-Z][A-Z][A-Z]'	# residues no
+	patt_ath = 'AUTHORS(.*?)[A-Z][A-Z][A-Z]'	#authors
+	patt_ttl = 'TITLE(.*?)[A-Z][A-Z][A-Z][A-Z]'	#title
+	patt_jur = 'JOURNAL(.*?)[A-Z][A-Z][A-Z][A-Z]'		# journal
+
+	f_data = None
+	try:
+		br = mechanize.Browser()
+		f_url = br.open(url)
+		f_data = f_url.get_data()
+		br.close()
+	except urllib2.URLError, e:
+		print '\tURL open error, url is: ' + url, e
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
+		f_err.close()
+		return
+
+	print '\tRagular expressions compiling...'
+
+	prog_rno = re.compile( patt_rno, re.DOTALL )
+	prog_ath = re.compile( patt_ath, re.DOTALL )
+	prog_ttl = re.compile( patt_ttl, re.DOTALL )
+	prog_jur = re.compile( patt_jur, re.DOTALL )
+	print '\tFind all content by RE....\n'
+
+	# process feature source data item
+	con_rno = prog_rno.findall(f_data)
+	con_ath = prog_ath.findall(f_data)
+	con_ttl = prog_ttl.findall(f_data)
+	con_jur = prog_jur.findall(f_data)
+#	print 'A:\n', con_ath, '\n\n', patt_ath
+	ref_num = len(con_rno)
+	valid = True
+	if ref_num == 0:
+		print '\tNo reference found in this web page, now will quit getting reference...'
+		valid = False
+		return None
+	err_txt = ''
+	if len(con_ath) != ref_num:
+		err_txt = '\t\tAuthors data item error...'
+		valid = False
+	if len(con_ttl) != ref_num:
+		err_txt = '\t\tTitle data item error...'
+		valid = False
+	if len(con_jur) != ref_num:
+		err_txt = '\t\tJournal data item error...'
+		valid = False
+
+	if valid == False:
+		print '\tReference cannot get correctly, now will quit getting reference...'
+		print err_txt
+		t = '\tReference cannot get correctly, now will quit getting reference...\n' + err_txt
+		print '\tSaving error url to log file: ' + ul_err_file_pro
+		f_err = open(ul_err_file_pro, 'a')
+		t = time.strftime('%Y-%m-%d  %H:%M:%S', time.localtime(time.time()))
+		f_err.write( '====================================\n' + t + '\n\t' + url + '\n')
+		f_err.close()
+		return None
+	idx = 0
+	while idx < ref_num:
+		rno_txt = con_rno[idx].split('(')[0]
+		rno_txt = rno_txt.lstrip()
+		rno_txt = rno_txt.rstrip()
+
+		ath_txt = con_ath[idx]
+		ath_txt = ath_txt.lstrip()
+		ath_txt = ath_txt.replace('            ', ' ')
+		ath_txt = ath_txt.replace('"\n', ' ')
+
+		ttl_txt = con_ttl[idx]
+		ttl_txt = ttl_txt.lstrip()
+		ttl_txt = ttl_txt.replace('            ', ' ')
+		ttl_txt = ttl_txt.replace('"\n', ' ')
+
+		jur_txt = con_jur[idx]
+		jur_txt = jur_txt.lstrip()
+		jur_txt = jur_txt.replace('            ', ' ')
+		jur_txt = jur_txt.replace('"\n', ' ')
+		jur_txt = jur_txt.replace( '</a>', '', jur_txt.count('</a>'))
+		patt_jur_a = '<a(.*?)>'
+		prog_jur_a = re.compile(patt_jur_a, re.DOTALL)
+		jur_rpl = prog_jur_a.findall(jur_txt)
+		for rpl in jur_rpl:
+			jur_txt = jur_txt.replace( '<a'+rpl+'>', '')
+#		print jur_rpl
+
+#		print idx + 1
+#		print '\tRe#:\t\n##', rno_txt, '##'
+#		print 'Authors:\t\n',  ath_txt
+#		print '\tTitle:\t\n',  ttl_txt
+#		print '\tJournal:\t\n', jur_txt 
+#		print jur_rpl
+
+		vo.setPid(pid)
+		vo.setRno(rno_txt)
+		vo.setAth(ath_txt)
+		vo.setTtl(ttl_txt)
+		vo.setJur(jur_txt)
+		save_ref_to_db(vo)
+		idx = idx + 1
+
+def save_ref_to_db(vo):
+	'''
++-------------+--------------+------+-----+---------+-------+
+| Field       | Type         | Null | Key | Default | Extra |
++-------------+--------------+------+-----+---------+-------+
+| protein_id  | varchar(16)  | YES  |     | NULL    |       |
+| residues_no | int(11)      | YES  |     | NULL    |       |
+| authors     | varchar(128) | YES  |     | NULL    |       |
+| title       | varchar(256) | YES  |     | NULL    |       |
+| journal     | varchar(256) | YES  |     | NULL    |       |
++-------------+--------------+------+-----+---------+-------+
+	'''
+	sql = 'insert into biss_protein_reference values (\'' + vo.getPid() + '\', \'' + vo.getRno() + '\', \'' + vo.getAth() + '\', \'' + vo.getTtl() + '\', \'' + vo.getJur() + '\');'
+	f_open = open( './logs/sql.sql', 'w')
+	f_open.write(sql)
+	print 'Now inserting data into database...'
+	res = MySqlConn.insert_one_by_sql(sql)
+	print '\tData inserted into database...'
+	return
+
+
 def get_url_list( kw ): # function same as url_list_init
 	print 'Get url list by query keywords( ' + kw + ' )from NCBI website...'
 	br = mechanize.Browser()
@@ -641,30 +873,32 @@ def protein_grab():
 	#		output: vo, which is data stored
 	#		process: get data by ragular expression, save data item to protein vo
 	vo = ProteinVO.ProteinVO()
+	vo_r = ProteinRefVO.ProteinRefVO()
 	for url in url_list:
 		get_html_data(url, vo)
 #		print query_from_db(vo.getId())
-		
 		cds = query_from_db( vo.getId())
 		if len(cds) == 0:
-			save_to_db( vo )
 			print '\t\tNone of this data item existed in database, now saving to database...'
+			save_to_db( vo )
+			get_html_ref_data( vo.getId(), url, vo_r )
 		else:
 			print '\t\tExisted data in database, no data saved into database...'
 	
 def protein_get_from_local():
 	files = os.listdir(local_html_dir)
 	vo = ProteinVO.ProteinVO()
+	vo_r = ProteinRefVO.ProteinRefVO()
 	for f_path in files:
 		get_data_from_local( local_html_dir + '/' + f_path, vo )
 		cds = query_from_db( vo.getId())
 		if len(cds) == 0:
 			print '\tNone of this data item existed in database, now saving to database...'
 			save_to_db( vo )
-
+			get_html_ref_data( vo.getId(), url, vo_r )
 		else:
 			print '\t\tExisted data in database, no data saved into database...'
 
 if __name__ == '__main__':
-#	protein_grab()
-	protein_get_from_local()
+	protein_grab()
+#	protein_get_from_local()
