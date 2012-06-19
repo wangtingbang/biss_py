@@ -1,5 +1,5 @@
 class NucVO(object):
-'''
+	'''
 +------------+---------------+------+-----+---------+-------+
 | Field      | Type          | Null | Key | Default | Extra |
 +------------+---------------+------+-----+---------+-------+
@@ -15,7 +15,7 @@ class NucVO(object):
 | comments   | varchar(1024) | YES  |     | NULL    |       |
 | contig     | varchar(128)  | YES  |     | NULL    |       |
 +------------+---------------+------+-----+---------+-------+
-'''
+	'''
 	nid = ''		# item id
 	locus = ''		# locus
 	defi = ''		# definition

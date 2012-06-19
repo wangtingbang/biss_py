@@ -12,41 +12,41 @@ class MyClass(object):
 	def get_val(object):
 		return MyClass.myval
 
-class ProteinRefVO(object):
-	p_id = ''		# item id
+class NucRefVO(object):
+	n_id = ''		# item id
 	r_no = ''		# residues_no
 	ath = ''		# authors
 	ttl = ''		# title
 	jur = ''		# journal
 
 	##########  setter  ###########
-	def setPid(object, para ):
-		ProteinRefVO.p_id = para
+	def setNid(object, para ):
+		NucRefVO.n_id = para
 
 	def setRno(object, para ):
-		ProteinRefVO.r_no = para
+		NucRefVO.r_no = para
 
 	def setAth(object, para ):
-		ProteinRefVO.ath = para
+		NucRefVO.ath = para
 
 	def setTtl(object, para ):
-		ProteinRefVO.ttl = para
+		NucRefVO.ttl = para
 
 	def setJur(object, para ):
-		ProteinRefVO.jur = para
+		NucRefVO.jur = para
 
 	###########  gettter  ###########
-	def getPid(object):
-		return ProteinRefVO.p_id
+	def getNid(object):
+		return NucRefVO.n_id
 
 	def getRno(object):
-		return ProteinRefVO.r_no
+		return NucRefVO.r_no
 
 	def getAth(object):
-		return ProteinRefVO.ath 
+		return NucRefVO.ath 
 
 	def getTtl(object):
-		return ProteinRefVO.ttl
+		return NucRefVO.ttl
 
 	def getJur(object):
-		return ProteinRefVO.jur
+		return NucRefVO.jur
